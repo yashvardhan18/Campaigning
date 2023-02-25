@@ -5,6 +5,7 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "hardhat/console.sol";
 
 contract crowdFunding is Initializable, ReentrancyGuardUpgradeable {
     struct cmp {
@@ -42,33 +43,20 @@ contract crowdFunding is Initializable, ReentrancyGuardUpgradeable {
         uint256 _targetTime,
         address _token
     ) external {
-        require(_targetAmount > 0, "ITA"); //Inavalid Target Amount
+        require(_targetAmount > 0, "ITA"); //Invalid Target Amount
         require(_targetTime > block.timestamp, "ITT"); //Invalid Target Time
         require(_token != address(0), "ZAT"); //Zero Address for Token
 
         uint256 id = campaignDetails[msg.sender].campaignID;
+        id++;
 
-        campaignDetails[msg.sender].campaignID = id++;
-        campaignDetails[msg.sender]
-            .details[campaignDetails[msg.sender].campaignID]
-            .creator = msg.sender;
-        campaignDetails[msg.sender]
-            .details[campaignDetails[msg.sender].campaignID]
-            .targetAmount = _targetAmount;
-        campaignDetails[msg.sender]
-            .details[campaignDetails[msg.sender].campaignID]
-            .targetTime = _targetTime;
-        campaignDetails[msg.sender]
-            .details[campaignDetails[msg.sender].campaignID]
-            .currencyToken = _token;
+        campaignDetails[msg.sender].campaignID = id;
+        campaignDetails[msg.sender].details[id].creator = msg.sender;
+        campaignDetails[msg.sender].details[id].targetAmount = _targetAmount;
+        campaignDetails[msg.sender].details[id].targetTime = _targetTime;
+        campaignDetails[msg.sender].details[id].currencyToken = _token;
 
-        emit crowdFund(
-            msg.sender,
-            campaignDetails[msg.sender].campaignID,
-            _targetAmount,
-            _targetTime,
-            _token
-        );
+        emit crowdFund(msg.sender, id, _targetAmount, _targetTime, _token);
     }
 
     function donate(
@@ -91,7 +79,7 @@ contract crowdFunding is Initializable, ReentrancyGuardUpgradeable {
         campaignDetails[creator]
             .details[campaignId]
             .currentFundingAmount += donationAmount;
-        donationDetails[msg.sender][campaignId] = donationAmount;
+        donationDetails[msg.sender][campaignId] += donationAmount;
         if (
             campaignDetails[creator].details[campaignId].currentFundingAmount >=
             campaignDetails[creator].details[campaignId].targetAmount
@@ -100,29 +88,36 @@ contract crowdFunding is Initializable, ReentrancyGuardUpgradeable {
         emit donated(campaignId, donationAmount);
     }
 
-    function returnDonation(uint256 campaignId) external {
+    function returnDonation(uint256 campaignId, address _creator) external {
         require(donationDetails[msg.sender][campaignId] > 0, "Invalid donor");
         require(
-            block.timestamp < detail.details[campaignId].targetTime,
+            block.timestamp <
+                campaignDetails[_creator].details[campaignId].targetTime,
             "Campaign not completed"
         );
-        require(!detail.details[campaignId].completed, "Campaign is completed");
-        uint256 donation = donationDetails[msg.sender][campaignId];
-        detail.details[campaignId].currentFundingAmount -= donation;
-        donationDetails[msg.sender][campaignId] = 0;
-        IERC20(detail.details[campaignId].currencyToken).transferFrom(
-            detail.details[campaignId].creator,
-            msg.sender,
-            donation
+        require(
+            !campaignDetails[_creator].details[campaignId].completed,
+            "Campaign is completed"
         );
+
+        uint256 donation = donationDetails[msg.sender][campaignId];
+
+        campaignDetails[_creator]
+            .details[campaignId]
+            .currentFundingAmount -= donation;
+
+        donationDetails[msg.sender][campaignId] = 0;
+
+        IERC20(campaignDetails[_creator].details[campaignId].currencyToken)
+            .transferFrom(_creator, msg.sender, donation);
     }
 
-    function viewCampaignDetails(uint256 campaignId)
+    function viewCampaignDetails(uint256 campaignId, address _creator)
         public
         view
         returns (campaign memory info)
     {
-        info = detail.details[campaignId];
+        info = campaignDetails[_creator].details[campaignId];
         return info;
     }
 }

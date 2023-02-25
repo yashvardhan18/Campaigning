@@ -4,7 +4,8 @@
     "@nomicfoundation/hardhat-toolbox": "^2.0.1",
     "@openzeppelin/contracts": "^4.8.1",
     "@openzeppelin/contracts-upgradeable": "^4.8.1",
-    "hardhat": "^2.12.7"
+    "hardhat": "^2.12.7",
+    "yesno": "^0.4.0"
   },
   "devDependencies": {
     "ts-node": "^10.9.1",
